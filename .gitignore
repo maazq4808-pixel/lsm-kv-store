@@ -1,0 +1,4 @@
+fsync_test
+*.log
+*.o
+*.sst
