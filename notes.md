@@ -1,4 +1,4 @@
-## 2026-08-XX — WAL record format complete
+## 2026-08-22 — WAL record format complete
 
 Built encodeRecord() in record.h: turns key+value into one binary record.
 Layout: [keyLen: 4 bytes][valLen: 4 bytes][checksum: 4 bytes][key][value]
