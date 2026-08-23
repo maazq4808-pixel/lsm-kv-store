@@ -1,19 +1,14 @@
-## 2026-08-22 — fsync measurement
-write only: 1 ms
-write + fsync: 10,374 ms
-~1 ms per fsync. So max ~1000 durable writes/sec if I sync every put.
-## 2026-08-23 — LogFile built and tested
+## 2026-08-XX — WAL record format complete
 
-Built LogFile class: wraps open/write/fsync/close in a small C++ class.
-- open() uses O_APPEND so existing log data is never overwritten
-- append() writes bytes via write()
-- sync() forces data to physical disk via fsync()
-- close() releases the file descriptor (does NOT imply fsync — must sync() first)
+Built encodeRecord() in record.h: turns key+value into one binary record.
+Layout: [keyLen: 4 bytes][valLen: 4 bytes][checksum: 4 bytes][key][value]
 
-Tested with main.cpp: wrote two records, synced, closed.
-Confirmed with `cat wal.log` — data persisted correctly.
-Confirmed O_APPEND works — running main.cpp again added new lines instead of overwriting.
+Checksum uses CRC32 (checksum.h) over key+value bytes — lets us detect
+torn/corrupted records on replay after a crash.
+
+Verified with xxd: wrote encodeRecord("ali", "555-1234"), confirmed
+exact byte layout matches design (23 bytes total).
 
 ### Next
-- Design WAL record format: [length][checksum][key][value]
-- Add CRC32 checksum function
+- Write decodeRecord() — read a record back from raw bytes, verify checksum
+- Then: memtable (std::map) + wiring put()/get()
