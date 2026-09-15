@@ -19,3 +19,13 @@ std::string encodeRecord(const std::string& key, const std::string& value){
     record.append(value);
     return record;
 }
+
+struct DecodeRecord {
+    std::string key;
+    std::string value;
+    bool valid;
+    size_t bytesConsumed;
+};
+
+DecodeRecord r;
+
