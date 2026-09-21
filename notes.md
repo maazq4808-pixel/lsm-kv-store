@@ -96,3 +96,21 @@ formatted.
   record, verify its checksum, and replay it into memtable_. Stop
   replaying at the first corrupted/incomplete record (that's where
   a crash would have happened).
+
+## 2026-09-20 — decodeRecord complete
+
+Wrote decodeRecord in record.h (reverse of encodeRecord). Returns a
+DecodedRecord struct: key, value, valid (checksum matched + not torn),
+bytesConsumed.
+- Two bounds checks guard against torn records (header, then key+value)
+- memcpy to read the 4-byte header numbers back into uint32_t
+- substr to slice out key and value using the lengths
+- valid = recomputed crc32(key+value) == stored checksum
+
+Tested round-trip in main: encode "ali"/"5555-1234" then decode ->
+got key/value back, valid=1, bytesConsumed=24. Correct.
+
+### Next
+- Recovery loop: walk the whole WAL (from readAll), call decodeRecord
+  repeatedly, put valid records into memtable, stop at first invalid.
+- Then wire recovery into DB::open().

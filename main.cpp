@@ -1,13 +1,12 @@
-#include "db.h"
+#include "record.h"
 #include <iostream>
-// Quick manual test for LogFile: write two records,
-// sync them to disk, then check wal.log with `cat` to confirm.
-int main(){
-    DB db;
-    db.open("wal.log");
-    db.put("ali","5555-1234");
-    db.put("sara","5555-6789");
-    std::cout << db.get("sara") << "\n";
-    std::cout << db.get("ali") << "\n";
-    db.close();
+
+int main() {
+    std::string encoded = encodeRecord("ali", "5555-1234");
+    DecodedRecord r = decodeRecord(encoded, 0);
+
+    std::cout << "key: " << r.key << "\n";
+    std::cout << "value: " << r.value << "\n";
+    std::cout << "valid: " << r.valid << "\n";
+    std::cout << "bytesConsumed: " << r.bytesConsumed << "\n";
 }
