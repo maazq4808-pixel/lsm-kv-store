@@ -114,3 +114,22 @@ got key/value back, valid=1, bytesConsumed=24. Correct.
 - Recovery loop: walk the whole WAL (from readAll), call decodeRecord
   repeatedly, put valid records into memtable, stop at first invalid.
 - Then wire recovery into DB::open().
+
+## 2026-09-21 — Recovery working (Phase 1 nearly complete)
+
+Wrote DB::recover(path): reads whole WAL via readAll, loops through it
+with decodeRecord, puts valid records into memtable, stops (break) at
+first invalid/torn record. Wired into DB::open() so it runs on startup.
+
+Tested across a real restart:
+- Program 1: put ali + sara, close, exit (no reads)
+- Program 2: fresh run, ZERO puts, just open + get -> returned both
+  values correctly.
+This proves data survives process exit and is rebuilt from disk.
+The store is now genuinely crash-safe for the write path.
+
+### Remaining in Phase 1
+- delete() (tombstones) — currently no way to remove a key
+- Fix get() returning "" for missing keys (can't tell "" from not-found)
+- Sync policy: batched vs per-write fsync (have the day-1 numbers already)
+- Manual crash test with kill -9
