@@ -3,9 +3,8 @@
 
 int main() {
     DB db;
-    db.open("wal.log");
-    db.put("ali", "5555-1234");
-    db.put("sara", "5555-6789");
+    db.open("wal.log");     // recovery runs here — should rebuild memtable from disk
+    std::cout << db.get("ali") << "\n";
+    std::cout << db.get("sara") << "\n";
     db.close();
-    std::cout << "wrote data\n";
 }
