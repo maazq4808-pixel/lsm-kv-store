@@ -16,6 +16,7 @@ public:
     // once recovery is implemented.
     void open(const std::string& path) {
         wal_.open(path);
+        recover(path);
     }
 
     // Stores a key-value pair. Order matters here:
@@ -45,7 +46,23 @@ public:
         wal_.close();
     }
 
+    void recover(const std::string& path) {
+        std::string data = wal_.readAll(path);
+        size_t offset = 0;
+        while(offset < data.size()){
+                DecodedRecord r = decodeRecord(data, offset);
+            if (r.valid == false){
+                break;
+            }
+            memtable_.put(r.key, r.value);
+            
+            offset += r.bytesConsumed;
+            }
+                      
+    }
+
 private:
     LogFile wal_;       // durable, on-disk copy of every write
     Memtable memtable_;  // fast, in-memory copy for reads
 };
+
