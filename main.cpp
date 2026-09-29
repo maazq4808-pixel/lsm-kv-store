@@ -1,10 +1,14 @@
 #include "db.h"
 #include <iostream>
+#include "record.h"
 
 int main() {
-    DB db;
-    db.open("wal.log");     // recovery runs here — should rebuild memtable from disk
-    std::cout << db.get("ali") << "\n";
-    std::cout << db.get("sara") << "\n";
-    db.close();
+    std::string encoded = encodeRecord("ali", "5555-1234", 0);
+    DecodedRecord r = decodeRecord(encoded, 0);
+
+    std::cout << "type: " << (int)r.type << "\n";
+    std::cout << "key: " << r.key << "\n";
+    std::cout << "value: " << r.value << "\n";
+    std::cout << "valid: " << r.valid << "\n";
+    std::cout << "bytesConsumed: " << r.bytesConsumed << "\n";
 }

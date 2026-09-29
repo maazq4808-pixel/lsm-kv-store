@@ -25,7 +25,7 @@ public:
     // If we crash between steps 1 and 2, recovery can still rebuild
     // this write from the WAL — nothing is lost.
     void put(const std::string& key, const std::string& value) {
-        std::string encoded = encodeRecord(key, value);
+        std::string encoded = encodeRecord(key, value, 0);
         wal_.append(encoded);
         wal_.sync();
 
