@@ -31,6 +31,18 @@ public:
 
         memtable_.put(key, value);
     }
+    // Deletes a key. Since the WAL is append-only, we can't erase the old
+    // record — instead we append a tombstone (type 1, empty value) that
+    // shadows it. On read, the tombstone means the key is gone. Also removes
+    // the key from the memtable so lookups don't find it.
+    void del(const std::string& key){
+        std::string encoded =encodeRecord(key,"", 1);
+        wal_.append(encoded);
+        wal_.sync();
+
+        memtable_.del(key);
+    }
+
 
     // Reads only check the memtable — fast, no disk access needed.
     // NOTE: currently returns "" for a missing key, same limitation
@@ -45,7 +57,9 @@ public:
     void close() {
         wal_.close();
     }
-
+    // Replays the WAL into the memtable on startup: puts re-add keys,
+    // tombstones re-delete them. Stops at the first invalid/torn record
+    // (the crash point), discarding anything after it.
     void recover(const std::string& path) {
         std::string data = wal_.readAll(path);
         size_t offset = 0;
@@ -54,7 +68,13 @@ public:
             if (r.valid == false){
                 break;
             }
-            memtable_.put(r.key, r.value);
+            if (r.type == 1){
+                memtable_.del(r.key);
+            }
+            else{
+                memtable_.put(r.key, r.value);
+            }
+            
             
             offset += r.bytesConsumed;
             }

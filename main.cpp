@@ -3,12 +3,15 @@
 #include "record.h"
 
 int main() {
-    std::string encoded = encodeRecord("ali", "5555-1234", 0);
-    DecodedRecord r = decodeRecord(encoded, 0);
+    DB db;
+    db.open("wal.log");
 
-    std::cout << "type: " << (int)r.type << "\n";
-    std::cout << "key: " << r.key << "\n";
-    std::cout << "value: " << r.value << "\n";
-    std::cout << "valid: " << r.valid << "\n";
-    std::cout << "bytesConsumed: " << r.bytesConsumed << "\n";
+    db.put("ali", "5555-1234");
+    db.put("sara", "5555-6789");
+    db.del("ali");                    // delete ali
+
+    std::cout << "ali: [" << db.get("ali") << "]\n";   // should be empty (deleted)
+    std::cout << "sara: [" << db.get("sara") << "]\n";  // should still be there
+
+    db.close();
 }

@@ -9,6 +9,10 @@ class Memtable {
         std::string get(const std::string& key){
         return data_[key];
     }
+        void del(const std::string& key){
+            data_.erase(key);
+
+        }
     private :
         std::map<std::string, std::string> data_;
 };
