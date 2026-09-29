@@ -133,3 +133,21 @@ The store is now genuinely crash-safe for the write path.
 - Fix get() returning "" for missing keys (can't tell "" from not-found)
 - Sync policy: batched vs per-write fsync (have the day-1 numbers already)
 - Manual crash test with kill -9
+## 2026-09-29 — Delete with tombstones working
+
+Added a 1-byte type tag to the record format: 0 = value, 1 = tombstone.
+Updated encode/decode to write/read it (offsets all shifted +1, header
+now 13 bytes). Added include guards (#pragma once) to fix double-include.
+
+- DB::del(key): appends a tombstone (encodeRecord(key,"",1)), syncs,
+  removes key from memtable
+- Memtable::del(key): data_.erase(key)
+- recover(): now branches on r.type — tombstone re-deletes, value re-puts
+
+Tested across restart: put ali+sara, del ali, restart with zero ops,
+ali stays deleted, sara intact. Durable deletes confirmed.
+
+### Remaining in Phase 1
+- Fix get() for missing keys ("" can't be told from "not found")
+- Sync policy: batched vs per-write fsync
+- Manual crash test (kill -9)
