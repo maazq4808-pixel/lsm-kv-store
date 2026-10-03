@@ -151,3 +151,23 @@ ali stays deleted, sara intact. Durable deletes confirmed.
 - Fix get() for missing keys ("" can't be told from "not found")
 - Sync policy: batched vs per-write fsync
 - Manual crash test (kill -9)
+
+## 2026-10-03 — get() returns std::optional (ambiguity fixed)
+
+Changed Memtable::get and DB::get to return std::optional<std::string>
+instead of plain string. Uses map::find (not []) so a lookup never
+creates a missing key. Returns std::nullopt for not-found, the value
+(even "") when found.
+
+Now "not found" is distinct from "found an empty value" — the ambiguity
+I'd flagged earlier is resolved.
+
+Tested: put ali+sara, del ali -> ali reads "not found", sara found,
+bob (never stored) "not found". Correct.
+
+(Note: switched OS Ubuntu -> Arch this session; re-cloned from GitHub,
+everything restored cleanly. Good proof the commit/push habit paid off.)
+
+### Remaining in Phase 1
+- Sync policy: batched vs per-write fsync
+- Manual crash test (kill -9)

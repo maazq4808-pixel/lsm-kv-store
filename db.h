@@ -2,6 +2,7 @@
 #include "memtable.h"
 #include "record.h"
 #include <string>
+#include <optional>
 
 // Ties WAL + Memtable together. This is the actual class a user
 // of the library interacts with directly.
@@ -48,7 +49,7 @@ public:
     // NOTE: currently returns "" for a missing key, same limitation
     // as Memtable::get(). Needs fixing before delete() is added,
     // since "" can't be distinguished from "key not found."
-    std::string get(const std::string& key) {
+    std::optional<std::string> get(const std::string& key) {
         return memtable_.get(key);
     }
 
