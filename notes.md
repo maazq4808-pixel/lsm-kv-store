@@ -170,4 +170,16 @@ everything restored cleanly. Good proof the commit/push habit paid off.)
 
 ### Remaining in Phase 1
 - Sync policy: batched vs per-write fsync
-- Manual crash test (kill -9)
+
+## 2026-10-03 — fsync re-measured on Arch (native ext4)
+
+Re-ran the day-1 fsync spike after switching WSL -> native Arch Linux.
+
+| Mode | WSL (old) | Arch (native) |
+|---|---|---|
+| write only (10k) | 1 ms | 5 ms |
+| write + fsync each (10k) | 10,374 ms | 3,236 ms |
+
+fsync ~3x faster on native Linux (no Windows translation layer).
+Gap still ~650x. Durable-write ceiling now ~3,000/sec (was ~1,000 on WSL).
+This is the tradeoff the sync policy will expose.
