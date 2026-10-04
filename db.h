@@ -28,7 +28,11 @@ public:
     void put(const std::string& key, const std::string& value) {
         std::string encoded = encodeRecord(key, value, 0);
         wal_.append(encoded);
-        wal_.sync();
+        writesSinceSync_ +=1;
+        if (writesSinceSync_ >= N_){
+            wal_.sync();
+            writesSinceSync_ = 0;
+        }
 
         memtable_.put(key, value);
     }
@@ -39,7 +43,11 @@ public:
     void del(const std::string& key){
         std::string encoded =encodeRecord(key,"", 1);
         wal_.append(encoded);
-        wal_.sync();
+        writesSinceSync_ += 1;
+        if (writesSinceSync_ >= N_){
+            wal_.sync();
+            writesSinceSync_ = 0;
+        }
 
         memtable_.del(key);
     }
@@ -53,9 +61,11 @@ public:
         return memtable_.get(key);
     }
 
-    // Closes the WAL file. Does NOT lose any data — all writes
-    // were already sync()'d to disk individually inside put().
+    // Flushes any pending (un-synced) writes to disk, then closes the WAL.
+    // A clean close never loses data; only a crash mid-batch can.
     void close() {
+        wal_.sync();
+        writesSinceSync_ = 0;
         wal_.close();
     }
     // Replays the WAL into the memtable on startup: puts re-add keys,
@@ -79,11 +89,17 @@ public:
             
             offset += r.bytesConsumed;
             }
-                      
-    }
+        }  
+    void setSyncInterval(size_t n){
+        N_ = n;
+            }
+    
 
 private:
     LogFile wal_;       // durable, on-disk copy of every write
     Memtable memtable_;  // fast, in-memory copy for reads
+    size_t N_ = 1;
+    size_t writesSinceSync_ = 0;
+
 };
 

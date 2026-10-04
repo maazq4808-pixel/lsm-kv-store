@@ -1,26 +1,43 @@
 #include "db.h"
 #include <iostream>
+#include <chrono>
 
 int main() {
-    DB db;
-    db.open("wal.log");
+    const int N = 10000;
 
-    db.put("ali", "5555-1234");
-    db.put("sara", "5555-6789");
-    db.del("ali");                       // delete ali
+    // ---------- Mode 1: sync every write (safe) ----------
+    {
+        system("rm -f bench1.wal");     // fresh file
+        DB db;
+        db.setSyncInterval(1);           // sync every write
+        db.open("bench1.wal");
 
-    // helper lambda to print an optional result
-    auto show = [](const std::string& name, std::optional<std::string> r) {
-        if (r.has_value()) {
-            std::cout << name << ": found [" << r.value() << "]\n";
-        } else {
-            std::cout << name << ": not found\n";
+        auto start = std::chrono::steady_clock::now();
+        for (int i = 0; i < N; i++) {
+            db.put("key" + std::to_string(i), "value");
         }
-    };
+        auto end = std::chrono::steady_clock::now();
+        db.close();
 
-    show("ali", db.get("ali"));          // deleted → not found
-    show("sara", db.get("sara"));        // → found [5555-6789]
-    show("bob", db.get("bob"));          // never stored → not found
+        auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+        std::cout << "sync every write (N=1):   " << ms << " ms\n";
+    }
 
-    db.close();
+    // ---------- Mode 2: batched (sync every 100) ----------
+    {
+        system("rm -f bench2.wal");
+        DB db;
+        db.setSyncInterval(100);         // sync every 100 writes
+        db.open("bench2.wal");
+
+        auto start = std::chrono::steady_clock::now();
+        for (int i = 0; i < N; i++) {
+            db.put("key" + std::to_string(i), "value");
+        }
+        auto end = std::chrono::steady_clock::now();
+        db.close();
+
+        auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+        std::cout << "batched (N=100):          " << ms << " ms\n";
+    }
 }

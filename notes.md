@@ -183,3 +183,23 @@ Re-ran the day-1 fsync spike after switching WSL -> native Arch Linux.
 fsync ~3x faster on native Linux (no Windows translation layer).
 Gap still ~650x. Durable-write ceiling now ~3,000/sec (was ~1,000 on WSL).
 This is the tradeoff the sync policy will expose.
+## 2026-10-03 — Sync policy + benchmark (Phase 1 sync done)
+
+Added "sync every N writes" to DB: N_ threshold + writesSinceSync_ counter.
+put/del increment the counter, fsync + reset when it hits N_. close() now
+flushes pending writes first (batched mode could otherwise lose buffered
+writes on a clean close). setSyncInterval(n) lets the user pick the mode.
+
+Benchmark (10,000 puts, Arch native):
+| Mode | Time | Writes/sec |
+|---|---|---|
+| sync every write (N=1) | 35,976 ms | ~280 |
+| batched (N=100) | 602 ms | ~16,600 |
+
+~60x faster batched. Confirms fsync cost is per-call: N=100 does 100x
+fewer fsyncs. Tradeoff: batched can lose up to N-1 writes on a crash.
+Group commit (fast AND durable) needs concurrency — deferred to Phase 4.
+
+### Remaining in Phase 1
+- Manual crash test (kill -9)
+- (later) nicer sync interface: every-write / batched / custom
