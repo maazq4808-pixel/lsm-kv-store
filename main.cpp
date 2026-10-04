@@ -4,14 +4,24 @@
 #include <iostream>
 
 int main() {
-    // make a small sorted map (stands in for a memtable)
+    // build a small sorted map and write it to an SSTable
     std::map<std::string, std::string> data;
     data["ali"] = "5555-1234";
     data["bob"] = "5555-0000";
     data["sara"] = "5555-6789";
-
-    // write it to an SSTable file
     writeSSTable("test.sst", data);
 
-    std::cout << "SSTable written to test.sst\n";
+    // helper to print a lookup result
+    auto show = [](const std::string& key, std::optional<std::string> r) {
+        if (r.has_value())
+            std::cout << key << " = " << r.value() << "\n";
+        else
+            std::cout << key << " = NOT FOUND\n";
+    };
+
+    // read keys back from the SSTable
+    show("ali",  readFromSstable("test.sst", "ali"));
+    show("bob",  readFromSstable("test.sst", "bob"));
+    show("sara", readFromSstable("test.sst", "sara"));
+    show("zzz",  readFromSstable("test.sst", "zzz"));   // not in the file
 }
