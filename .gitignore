@@ -1,4 +1,6 @@
+main
 fsync_test
 *.log
+*.wal
 *.o
 *.sst
