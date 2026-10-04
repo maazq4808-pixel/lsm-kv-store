@@ -203,3 +203,24 @@ Group commit (fast AND durable) needs concurrency — deferred to Phase 4.
 ### Remaining in Phase 1
 - Manual crash test (kill -9)
 - (later) nicer sync interface: every-write / batched / custom
+
+## 2026-10-03 — Crash test passed — PHASE 1 COMPLETE
+
+Manual crash test: ran a writer looping puts in N=1 (sync-every-write)
+mode, killed it mid-write with `pkill -9` (hard, uncatchable, no cleanup
+— simulates power loss). crash.wal had ~78KB (~3,100 records) written.
+
+Reopened the DB: recovery replayed the WAL, early keys (0-19) all present
+and correct, and recovery completed WITHOUT crashing — the torn final
+record (severed mid-write) was handled gracefully by the bounds + checksum
+checks in decodeRecord/recover.
+
+Proves: durable writes survive a hard crash; torn records don't break
+recovery or get read as valid. This is real crash-safety.
+
+### PHASE 1 DONE ✓
+WAL + checksums + memtable + recovery + tombstone deletes + optional get
++ sync policy (benchmarked) + crash-tested.
+
+### Next: Phase 2 — SSTables and flushing
+Handle data bigger than RAM: flush memtable to sorted on-disk files.
