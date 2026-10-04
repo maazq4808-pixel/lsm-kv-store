@@ -191,13 +191,13 @@ flushes pending writes first (batched mode could otherwise lose buffered
 writes on a clean close). setSyncInterval(n) lets the user pick the mode.
 
 Benchmark (10,000 puts, Arch native):
+fewer fsyncs. Tradeoff: batched can lose up to N-1 writes on a crash.
 | Mode | Time | Writes/sec |
 |---|---|---|
 | sync every write (N=1) | 35,976 ms | ~280 |
 | batched (N=100) | 602 ms | ~16,600 |
 
 ~60x faster batched. Confirms fsync cost is per-call: N=100 does 100x
-fewer fsyncs. Tradeoff: batched can lose up to N-1 writes on a crash.
 Group commit (fast AND durable) needs concurrency — deferred to Phase 4.
 
 ### Remaining in Phase 1

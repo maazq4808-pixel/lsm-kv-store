@@ -1,20 +1,17 @@
-#include "db.h"
+#include "sstable.h"
+#include <map>
+#include <string>
 #include <iostream>
 
 int main() {
-    DB db;
-    db.open("crash.wal");      // recovery runs here on the crash-severed WAL
+    // make a small sorted map (stands in for a memtable)
+    std::map<std::string, std::string> data;
+    data["ali"] = "5555-1234";
+    data["bob"] = "5555-0000";
+    data["sara"] = "5555-6789";
 
-    // check some early keys that definitely got written before the crash
-    for (int i = 0; i < 20; i++) {
-        auto r = db.get("key" + std::to_string(i));
-        if (r.has_value()) {
-            std::cout << "key" << i << " = " << r.value() << "\n";
-        } else {
-            std::cout << "key" << i << " = NOT FOUND\n";
-        }
-    }
+    // write it to an SSTable file
+    writeSSTable("test.sst", data);
 
-    db.close();
-    std::cout << "recovery completed without crashing\n";
+    std::cout << "SSTable written to test.sst\n";
 }
