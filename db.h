@@ -1,3 +1,4 @@
+#pragma once
 #include "log_file.h"
 #include "memtable.h"
 #include "record.h"
@@ -35,6 +36,16 @@ public:
         }
 
         memtable_.put(key, value);
+        // If the memtable has grown past the flush threshold, write it out to a
+// new SSTable file on disk and clear it. This keeps the memtable (RAM)
+// bounded — older data lives in SSTables, only recent writes stay in memory.
+        if (memtable_.size()>= flushThreshold_){
+            std::string filename = "sstable" + std::to_string(sstCounter_) + ".sst";
+            writeSSTable(filename, memtable_.getData());
+            memtable_.clear();
+            sstCounter_ += 1;
+        }
+
     }
     // Deletes a key. Since the WAL is append-only, we can't erase the old
     // record — instead we append a tombstone (type 1, empty value) that
@@ -99,7 +110,9 @@ private:
     LogFile wal_;       // durable, on-disk copy of every write
     Memtable memtable_;  // fast, in-memory copy for reads
     size_t N_ = 1;
-    size_t writesSinceSync_ = 0;
+    size_t writesSinceSync_ = 0; //sync threshold
+    size_t sstCounter_ = 0;  //counter to count the number of sst files created
+    size_t flushThreshold_ = 3; //threshold to flush sstable file
 
 };
 

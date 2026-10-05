@@ -2,26 +2,18 @@
 #include <map>
 #include <string>
 #include <iostream>
+#include "db.h"
+#include <iostream>
 
 int main() {
-    // build a small sorted map and write it to an SSTable
-    std::map<std::string, std::string> data;
-    data["ali"] = "5555-1234";
-    data["bob"] = "5555-0000";
-    data["sara"] = "5555-6789";
-    writeSSTable("test.sst", data);
+    DB db;
+    db.open("wal.log");
 
-    // helper to print a lookup result
-    auto show = [](const std::string& key, std::optional<std::string> r) {
-        if (r.has_value())
-            std::cout << key << " = " << r.value() << "\n";
-        else
-            std::cout << key << " = NOT FOUND\n";
-    };
+    db.put("ali", "1");
+    db.put("bob", "2");
+    db.put("cat", "3");    // memtable hits 3 → should flush to sstable0.sst
+    db.put("dog", "4");
 
-    // read keys back from the SSTable
-    show("ali",  readFromSstable("test.sst", "ali"));
-    show("bob",  readFromSstable("test.sst", "bob"));
-    show("sara", readFromSstable("test.sst", "sara"));
-    show("zzz",  readFromSstable("test.sst", "zzz"));   // not in the file
+    std::cout << "done\n";
+    db.close();
 }

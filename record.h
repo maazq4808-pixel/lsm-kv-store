@@ -1,7 +1,4 @@
-#ifndef RECORD_H
-#define RECORD_H
-
-
+#pragma once
 #include <string>
 #include <cstdint>
 #include "checksum.h"
@@ -67,4 +64,3 @@ DecodedRecord decodeRecord(const std::string& data, size_t offset) {
     result.type = type;
     return result; 
 }
-#endif
