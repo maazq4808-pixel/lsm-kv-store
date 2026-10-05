@@ -4,6 +4,7 @@
 #include "record.h"
 #include <string>
 #include <optional>
+#include "sstable.h"
 
 // Ties WAL + Memtable together. This is the actual class a user
 // of the library interacts with directly.
@@ -68,8 +69,23 @@ public:
     // NOTE: currently returns "" for a missing key, same limitation
     // as Memtable::get(). Needs fixing before delete() is added,
     // since "" can't be distinguished from "key not found."
+    // Looks up a key: checks the memtable first (newest), then SSTables
+    // newest-to-oldest. Returns the value if found, nullopt if not.
     std::optional<std::string> get(const std::string& key) {
-        return memtable_.get(key);
+        auto result = memtable_.get(key);
+        if (result.has_value()){
+            return result;
+        }
+        for (int i = sstCounter_  - 1; i >= 0; i--){
+            std::string filename = "sstable" + std::to_string(i) + ".sst";
+            auto found = readFromSstable (filename, key);
+            if (found.has_value()){
+                return found;
+            }
+        }
+          return std::nullopt;  
+         
+
     }
 
     // Flushes any pending (un-synced) writes to disk, then closes the WAL.

@@ -224,3 +224,30 @@ WAL + checksums + memtable + recovery + tombstone deletes + optional get
 
 ### Next: Phase 2 — SSTables and flushing
 Handle data bigger than RAM: flush memtable to sorted on-disk files.
+### TODO (cleanup / later)
+- Store SSTable filenames in a std::vector (manifest-style) instead of
+  rebuilding "sstable" + i + ".sst" in both put and get. Removes duplicated
+  naming, sets up Phase 3 manifest.
+- User-facing config: sync mode options + flush threshold setter.
+## 2026-10-05 — SSTables + flush + multi-source reads (Phase 2 core)
+
+Built the SSTable write/read path and wired it into DB:
+- writeSSTable(path, map): flushes sorted memtable to an SSTable file
+  (reuses encodeRecord; data block only for now)
+- readFromSstable(path, key): linear scan for a key, handles tombstones
+- Memtable: added size(), getData(), clear() for flushing
+- DB::put: flushes memtable to sstableN.sst when size >= flushThreshold_
+  (default 3), clears memtable, increments sstCounter_
+- DB::get: checks memtable first, then SSTables newest-to-oldest
+
+Tested end to end: put 4 entries (flush at 3) -> ali found from SSTable,
+dog found from memtable, zzz not found. Data now survives beyond RAM.
+
+### Remaining in Phase 2
+- Sparse index + binary search (make SSTable reads fast, not linear scan)
+- Tombstones across SSTables (del must shadow old SSTable values)
+- scan(start, end) range queries
+
+### TODO / later
+- Store SSTable filenames in a vector (manifest) instead of rebuilding names
+- User config: sync modes + flush threshold setter
