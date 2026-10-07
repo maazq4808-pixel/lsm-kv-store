@@ -72,9 +72,12 @@ public:
     // Looks up a key: checks the memtable first (newest), then SSTables
     // newest-to-oldest. Returns the value if found, nullopt if not.
     std::optional<std::string> get(const std::string& key) {
-        auto result = memtable_.get(key);
-        if (result.has_value()){
-            return result;
+        std::optional<Entry> entry = memtable_.getEntry(key);
+        if (entry.has_value()){
+            if (entry.value().isTombstone == true){
+                return std::nullopt;
+            }
+            return entry.value().value;
         }
         for (int i = sstCounter_  - 1; i >= 0; i--){
             std::string filename = "sstable" + std::to_string(i) + ".sst";

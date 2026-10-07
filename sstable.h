@@ -4,7 +4,7 @@
 #include "log_file.h"
 #include "record.h"
 #include <optional>
-
+#include "memtable.h"
 // Writes a memtable's contents to an SSTable file on disk.
 //
 // An SSTable is a sorted, immutable file of key-value entries. Because the
@@ -16,16 +16,20 @@
 // type is 0 (value) for all entries here, since the memtable only holds
 // live values (deletes erase from the map).
 //
-// This writes just the data block for now; the sparse index and footer
-// come later.
+// Each entry becomes a record: type 1 for tombstones (deleted keys),
+// type 0 for values. Reuses encodeRecord.
 void writeSSTable(const std::string& path,
-                  const std::map<std::string, std::string>& data) {
+                  const std::map<std::string, Entry>& data) {
     LogFile out;
     out.open(path);
 
     // Walk the map in sorted order, encode each entry, write it to disk.
     for (const auto& entry : data) {
-        std::string encoded = encodeRecord(entry.first, entry.second, 0);
+        uint8_t type = 0;
+        if (entry.second.isTombstone == true){
+          type = 1;
+        }
+        std::string encoded = encodeRecord(entry.first, entry.second.value, type);
         out.append(encoded);
     }
 

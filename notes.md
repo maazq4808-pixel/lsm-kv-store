@@ -251,3 +251,8 @@ dog found from memtable, zzz not found. Data now survives beyond RAM.
 ### TODO / later
 - Store SSTable filenames in a vector (manifest) instead of rebuilding names
 - User config: sync modes + flush threshold setter
+### TODO (correctness, later)
+- Flushed tombstone across SSTables: if a tombstone is in a NEWER sstable
+  and a value in an OLDER one, get() currently falls through to the old
+  value. readFromSstable needs to signal "found a tombstone, stop" vs
+  "not in this file". Fix when doing compaction (Phase 3 handles this anyway).
