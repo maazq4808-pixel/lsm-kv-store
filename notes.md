@@ -256,3 +256,17 @@ dog found from memtable, zzz not found. Data now survives beyond RAM.
   and a value in an OLDER one, get() currently falls through to the old
   value. readFromSstable needs to signal "found a tombstone, stop" vs
   "not in this file". Fix when doing compaction (Phase 3 handles this anyway).
+  ## 2026-10-06 — Tombstones across SSTables (memtable case)
+Memtable now stores Entry{value, isTombstone} instead of bare strings.
+del() keeps a tombstone (doesn't erase). writeSSTable writes type-1 for
+tombstones. Added getEntry() so DB::get can tell "deleted" from "absent" —
+get stops at a memtable tombstone instead of falling through to SSTables.
+Tested: put ali/bob/cat (flush), del ali, get ali → NOT FOUND. Works.
+
+### Known gaps / next
+- Flushed-tombstone across SSTables: newer-SSTable tombstone doesn't shadow
+  older-SSTable value (readFromSstable nullopt looks like "not in file").
+- No manifest: sstCounter_ resets on restart → DB can't find old SSTables.
+  Data is safe on disk but unreachable after reopen. (Phase 3 feature.)
+- WAL not truncated after flush.
+- Sparse index (reads are linear scan). scan() not built.
