@@ -5,19 +5,15 @@
 #include "record.h"
 #include <optional>
 #include "memtable.h"
-// Writes a memtable's contents to an SSTable file on disk.
+// Writes a memtable's contents to a new SSTable file on disk.
 //
-// An SSTable is a sorted, immutable file of key-value entries. Because the
-// memtable (std::map) is already sorted by key, we just iterate it in order
-// and write each entry — the file comes out sorted for free.
+// An SSTable is a sorted, immutable file of records. The memtable
+// (std::map) is already sorted by key, so we write entries in map order
+// and the file is sorted.
 //
-// Each entry reuses the WAL record format via encodeRecord:
+// Each entry uses the WAL record format (encodeRecord):
 //   [type:1][keyLen:4][valLen:4][checksum:4][key][value]
-// type is 0 (value) for all entries here, since the memtable only holds
-// live values (deletes erase from the map).
-//
-// Each entry becomes a record: type 1 for tombstones (deleted keys),
-// type 0 for values. Reuses encodeRecord.
+// type 0 = value, type 1 = tombstone (deleted key, empty value).
 void writeSSTable(const std::string& path,
                   const std::map<std::string, Entry>& data) {
     LogFile out;
@@ -37,21 +33,22 @@ void writeSSTable(const std::string& path,
     out.close();
 }
 
-// Searches an SSTable file for a single key and returns its value.
+// Looks up one key in an SSTable file.
 //
-// Reads the whole file, then scans entries in order (decodeRecord) until it
-// finds a matching key. If the match is a tombstone (type 1), the key was
-// deleted, so returns nullopt. If no entry matches, returns nullopt too.
-// Stops early at the first corrupt/torn record.
+// Returns:
+//   Entry{value, false}  -> key found with a value
+//   Entry{"", true}      -> key found as a tombstone (deleted)
+//   std::nullopt         -> key is not in this file
 //
-// This is a linear scan for now; a sparse index will make it a binary search
-// later so we don't read the whole file.
-
-std :: optional<std::string> readFromSstable(const std::string& path,const std::string& key){
+// The caller must stop searching on a tombstone. A tombstone is an
+// answer ("deleted"), not "not found".
+//
+// Linear scan for now. A sparse index will replace it later.
+// Stops at the first invalid record.
+std :: optional<Entry> readFromSstable(const std::string& path,const std::string& key){
     LogFile in;
     std :: string data = in.readAll(path);
     size_t offset = 0;
-
     while ( offset < data.size()){
         DecodedRecord r = decodeRecord(data, offset);
         if (r.valid == false){
@@ -60,10 +57,10 @@ std :: optional<std::string> readFromSstable(const std::string& path,const std::
         }
         if (r.key == key){
          if (r.type == 1){
-            return std::nullopt;
+            return Entry {"",true};
         }
         else {
-            return r.value;
+            return Entry{r.value,false};
         }
     }
         offset += r.bytesConsumed;

@@ -14,9 +14,8 @@
 // has the record and it can be recovered on next open().
 class DB {
 public:
-    // Opens the database at `path`. Currently just opens the WAL file.
-    // Will later also replay the WAL to rebuild memtable_ on startup,
-    // once recovery is implemented.
+    // Opens the database: opens the WAL, then replays it to rebuild
+// the memtable (see recover()).
     void open(const std::string& path) {
         wal_.open(path);
         recover(path);
@@ -48,10 +47,10 @@ public:
         }
 
     }
-    // Deletes a key. Since the WAL is append-only, we can't erase the old
-    // record — instead we append a tombstone (type 1, empty value) that
-    // shadows it. On read, the tombstone means the key is gone. Also removes
-    // the key from the memtable so lookups don't find it.
+    // Deletes a key. The WAL is append-only, so we cannot erase old
+    // records. We append a tombstone (type 1, empty value) to the WAL
+    // and store a tombstone in the memtable. On flush, the tombstone
+    // goes to the SSTable, where it hides older values of the key.
     void del(const std::string& key){
         std::string encoded =encodeRecord(key,"", 1);
         wal_.append(encoded);
@@ -65,12 +64,9 @@ public:
     }
 
 
-    // Reads only check the memtable — fast, no disk access needed.
-    // NOTE: currently returns "" for a missing key, same limitation
-    // as Memtable::get(). Needs fixing before delete() is added,
-    // since "" can't be distinguished from "key not found."
-    // Looks up a key: checks the memtable first (newest), then SSTables
-    // newest-to-oldest. Returns the value if found, nullopt if not.
+    // Looks up a key, newest data first: memtable, then SSTables from
+    // newest to oldest. The first record found for the key is the answer.
+    // A tombstone means deleted: return nullopt and stop searching.
     std::optional<std::string> get(const std::string& key) {
         std::optional<Entry> entry = memtable_.getEntry(key);
         if (entry.has_value()){
@@ -83,7 +79,12 @@ public:
             std::string filename = "sstable" + std::to_string(i) + ".sst";
             auto found = readFromSstable (filename, key);
             if (found.has_value()){
-                return found;
+                if (found.value().isTombstone == true ){
+                    return std::nullopt;
+
+                }
+            
+                return found.value().value;
             }
         }
           return std::nullopt;  

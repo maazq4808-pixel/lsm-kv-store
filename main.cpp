@@ -16,9 +16,12 @@ int main() {
 
     // now delete ali — it's already in sstable0
     db.del("ali");
+    db.put("bob", "2");
+    db.put("cat", "3");
+
 
     // the real test: is ali still deleted, even though its value is in sstable0?
-    show("ali", db.get("ali"));   // should be NOT FOUND (tombstone shadows sstable0's value)
+    show("ali", db.get("ali"));  // should be NOT FOUND (tombstone shadows sstable0's value)
     show("bob", db.get("bob"));   // should be found (2)
 
     db.close();

@@ -256,6 +256,7 @@ dog found from memtable, zzz not found. Data now survives beyond RAM.
   and a value in an OLDER one, get() currently falls through to the old
   value. readFromSstable needs to signal "found a tombstone, stop" vs
   "not in this file". Fix when doing compaction (Phase 3 handles this anyway).
+  (1) benchmark read latency before and after every optimization; (2) correctness before speed: fix the tombstone and restart bugs, then the sparse index.
   ## 2026-10-06 — Tombstones across SSTables (memtable case)
 Memtable now stores Entry{value, isTombstone} instead of bare strings.
 del() keeps a tombstone (doesn't erase). writeSSTable writes type-1 for
@@ -269,4 +270,47 @@ Tested: put ali/bob/cat (flush), del ali, get ali → NOT FOUND. Works.
 - No manifest: sstCounter_ resets on restart → DB can't find old SSTables.
   Data is safe on disk but unreachable after reopen. (Phase 3 feature.)
 - WAL not truncated after flush.
+- Sparse index (reads are linear scan). scan() not built.
+## 2026-10-07 — Flushed tombstone bug fixed (deleted keys came back)
+
+Bug: a tombstone in a NEWER SSTable did not hide a value in an OLDER
+SSTable. readFromSstable returned nullopt for both "found a tombstone"
+and "key not in this file", so get() could not tell them apart and
+kept searching older files. Result: deleted keys came back.
+
+Reproduced first with a failing test (main.cpp):
+- put ali, bob, cat -> flush to sstable0 (ali = 1)
+- del ali, put bob, put cat -> flush to sstable1 (ali = tombstone)
+- get("ali") returned "1" (wrong). Confirmed bug.
+Note: the old test passed by luck. The tombstone stayed in the
+memtable, so the SSTable path never ran. del() does not flush;
+only put() checks flushThreshold_.
+
+Fix:
+- readFromSstable now returns std::optional<Entry> (same pattern as
+  Memtable::getEntry): Entry{value,false} = value,
+  Entry{"",true} = tombstone, nullopt = not in this file.
+- get() loop: nullopt -> continue to older file; tombstone -> return
+  nullopt and stop; value -> return it.
+Rule: the first record found for a key is the answer, even if it is
+a tombstone.
+
+Test now prints ali = NOT FOUND, bob = 2. Correct.
+
+Also: updated stale comments in db.h, sstable.h, main.cpp.
+
+Lessons:
+- Rejected a magic string ("Not found") as a signal: in-band
+  signaling, a user can store that string. Same mistake as "" before.
+- optional.value() (method: get the Entry out of the optional) is not
+  the same as entry.value (field of Entry).
+- In the get() loop, check `found` (the SSTable result), not `entry`
+  (the memtable result, always empty inside the loop).
+
+### Known gaps / next
+- No manifest: sstCounter_ resets on restart -> old SSTables
+  unreachable after reopen.
+- WAL not truncated after flush.
+- del() does not check flushThreshold_ (memtable can grow with
+  deletes only).
 - Sparse index (reads are linear scan). scan() not built.
