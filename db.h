@@ -6,6 +6,7 @@
 #include <optional>
 #include "sstable.h"
 #include "manifest.h"
+#include <vector>
 
 // Ties WAL + Memtable together. This is the actual class a user
 // of the library interacts with directly.
@@ -20,6 +21,7 @@ public:
     void open(const std::string& path) {
         wal_.open(path);
         manifest_.open("MANIFEST");
+        sstables_ = manifest_.load();
         recover(path);
         
     }
@@ -140,5 +142,6 @@ private:
     size_t sstCounter_ = 0;  //counter to count the number of sst files created
     size_t flushThreshold_ = 3; //threshold to flush sstable file
     Manifest manifest_; //list of live sstables
+    std::vector<std::string> sstables_; //live sstable names
 };
 
