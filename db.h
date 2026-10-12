@@ -5,6 +5,7 @@
 #include <string>
 #include <optional>
 #include "sstable.h"
+#include "manifest.h"
 
 // Ties WAL + Memtable together. This is the actual class a user
 // of the library interacts with directly.
@@ -18,7 +19,9 @@ public:
 // the memtable (see recover()).
     void open(const std::string& path) {
         wal_.open(path);
+        manifest_.open("MANIFEST");
         recover(path);
+        
     }
 
     // Stores a key-value pair. Order matters here:
@@ -43,9 +46,11 @@ public:
             if (memtable_.size()>= flushThreshold_){
                 std::string filename = "sstable" + std::to_string(sstCounter_) + ".sst";
                 if (writeSSTable(filename, memtable_.getData())==true){
+                manifest_.add(filename);
                 memtable_.clear();
                 sstCounter_ += 1;
-            }}
+            }
+        }
       
     }
     // Deletes a key. The WAL is append-only, so we cannot erase old
@@ -134,6 +139,6 @@ private:
     size_t writesSinceSync_ = 0; //sync threshold
     size_t sstCounter_ = 0;  //counter to count the number of sst files created
     size_t flushThreshold_ = 3; //threshold to flush sstable file
-
+    Manifest manifest_; //list of live sstables
 };
 
