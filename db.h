@@ -39,13 +39,14 @@ public:
         // If the memtable has grown past the flush threshold, write it out to a
 // new SSTable file on disk and clear it. This keeps the memtable (RAM)
 // bounded — older data lives in SSTables, only recent writes stay in memory.
-        if (memtable_.size()>= flushThreshold_){
-            std::string filename = "sstable" + std::to_string(sstCounter_) + ".sst";
-            writeSSTable(filename, memtable_.getData());
-            memtable_.clear();
-            sstCounter_ += 1;
-        }
-
+       
+            if (memtable_.size()>= flushThreshold_){
+                std::string filename = "sstable" + std::to_string(sstCounter_) + ".sst";
+                if (writeSSTable(filename, memtable_.getData())==true){
+                memtable_.clear();
+                sstCounter_ += 1;
+            }}
+      
     }
     // Deletes a key. The WAL is append-only, so we cannot erase old
     // records. We append a tombstone (type 1, empty value) to the WAL
@@ -87,7 +88,7 @@ public:
                 return found.value().value;
             }
         }
-          return std::nullopt;  
+          return std::nullopt; 
          
 
     }

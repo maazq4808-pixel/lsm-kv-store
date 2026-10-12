@@ -14,10 +14,13 @@
 // Each entry uses the WAL record format (encodeRecord):
 //   [type:1][keyLen:4][valLen:4][checksum:4][key][value]
 // type 0 = value, type 1 = tombstone (deleted key, empty value).
-void writeSSTable(const std::string& path,
+bool writeSSTable(const std::string& path,
                   const std::map<std::string, Entry>& data) {
     LogFile out;
-    out.open(path);
+     bool opened = out.openNew(path);
+     if (opened == false){
+        return false;
+     }
 
     // Walk the map in sorted order, encode each entry, write it to disk.
     for (const auto& entry : data) {
@@ -31,6 +34,7 @@ void writeSSTable(const std::string& path,
 
     out.sync();   // force the whole SSTable to disk — it's permanent storage
     out.close();
+    return true;
 }
 
 // Looks up one key in an SSTable file.

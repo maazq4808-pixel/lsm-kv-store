@@ -15,6 +15,15 @@ class LogFile {
         void open( const std::string& path){
             fd_  = ::open(path.c_str(), O_WRONLY | O_CREAT | O_APPEND, 0644);
         }
+
+        bool openNew (const std::string & path){
+            fd_ = ::open(path.c_str(),O_WRONLY | O_CREAT | O_EXCL, 0644);
+            if (fd_ < 0){
+                return false;
+            }
+        
+            return true;
+        }
 // Writes `data` to the file. Goes into OS memory first —
     // NOT guaranteed to be on disk yet. Call sync() for that.
         void append( const std::string& data){
