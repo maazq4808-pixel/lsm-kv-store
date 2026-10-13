@@ -314,3 +314,70 @@ Lessons:
 - del() does not check flushThreshold_ (memtable can grow with
   deletes only).
 - Sparse index (reads are linear scan). scan() not built.
+## 2026-10-11 — SSTable append-on-restart bug fixed (O_EXCL)
+
+Bug: on restart, sstCounter_ reset to 0, so the next flush reused
+sstable0.sst. LogFile::open uses O_APPEND, so new records were added
+after the old ones. Result: file no longer sorted, duplicate keys, and
+the linear scan returned the OLD value. Worse than my earlier note
+("data unreachable") — it was silent corruption.
+
+Fix:
+- LogFile::openNew(path): O_WRONLY | O_CREAT | O_EXCL. Fails if the
+  file exists, so an SSTable is never appended to. Returns bool;
+  fd_ stays private (no getter).
+- writeSSTable returns bool; stops if openNew fails.
+- put: clear memtable + increment counter ONLY if the flush succeeded.
+  On failure, data stays in the memtable.
+- WAL keeps O_APPEND (it needs old records for recovery).
+- Rejected O_TRUNC: it would silently erase the old SSTable's data.
+
+Tested: ran main twice without cleanup; sstable0.sst stayed 51 bytes.
+Rule: make the failure safe first, then fix the cause.
+
+## 2026-10-11 to 10-13 — Manifest (DB survives restart)
+
+Problem: the SSTable list lived only in memory; restart lost it.
+
+Built manifest.h:
+- Append-only file "MANIFEST", one entry per SSTable, using
+  encodeRecord: key = file name, value = "", type 0 = added
+  (type 1 = removed, for Phase 3). CRC32 detects a torn last entry.
+- open(path), add(filename) (append + sync), load() -> vector of
+  live names (stops at first invalid entry).
+
+DB changes:
+- open(): sstables_ = manifest_.load(); sstCounter_ = highest file
+  number + 1 (substr + stoi). Not the count: compaction will leave
+  gaps. largest starts at -1 so an empty manifest gives 0.
+- put(): after a successful flush -> manifest_.add, then
+  sstables_.push_back, then clear memtable.
+- get(): loops over sstables_, newest to oldest.
+- sstables_ = in-memory copy (speed); MANIFEST = disk copy
+  (durability). Same pattern as memtable/WAL.
+
+Ordering rules:
+1. A file is part of the DB only after the manifest lists it.
+   Write + sync SSTable FIRST, then add to manifest.
+2. Remove data from one place only after it is safe in the next.
+   Clear the memtable LAST.
+3. (Future) Truncate the WAL only after the manifest entry is synced.
+
+Considered and rejected: rewrite manifest via temp file + rename()
+(atomic, but rewrites full list; checksummed records reuse tested code).
+Candidate for the design doc.
+
+### Next
+- test.cpp with assert: restart tests (flush 2 SSTables, restart,
+  all found; then flush again -> sstable2 created).
+- Delete orphan SSTables (not in manifest) on open().
+- WAL truncation after flush.
+- Then sparse index, scan().
+
+### TODO / later
+- Store next file number in the manifest (LevelDB style), Phase 3.
+- Error handling: choose exceptions vs status returns; check
+  open/write/fsync results (fsyncgate).
+- CRC should cover the type byte (and lengths).
+- inline on header functions + #pragma once in checksum.h (ODR).
+- del() does not check flushThreshold_.

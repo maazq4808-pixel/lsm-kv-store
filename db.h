@@ -16,12 +16,23 @@
 // has the record and it can be recovered on next open().
 class DB {
 public:
-    // Opens the database: opens the WAL, then replays it to rebuild
-// the memtable (see recover()).
+    // Opens the database:
+    // 1. Opens the WAL.
+    // 2. Opens the manifest and loads the list of live SSTables.
+    // 3. Sets the next SSTable number from that list.
+    // 4. Replays the WAL to rebuild the memtable (see recover()).
     void open(const std::string& path) {
         wal_.open(path);
         manifest_.open("MANIFEST");
         sstables_ = manifest_.load();
+        int largest = -1;
+        for(const auto& name : sstables_){
+            int fileNumber = std::stoi(name.substr(7, name.size() - 11)); 
+            if(fileNumber > largest){
+                largest = fileNumber;
+            }
+        }
+        sstCounter_ = largest + 1;
         recover(path);
         
     }
@@ -49,6 +60,7 @@ public:
                 std::string filename = "sstable" + std::to_string(sstCounter_) + ".sst";
                 if (writeSSTable(filename, memtable_.getData())==true){
                 manifest_.add(filename);
+                sstables_.push_back(filename);
                 memtable_.clear();
                 sstCounter_ += 1;
             }
@@ -83,8 +95,8 @@ public:
             }
             return entry.value().value;
         }
-        for (int i = sstCounter_  - 1; i >= 0; i--){
-            std::string filename = "sstable" + std::to_string(i) + ".sst";
+        for (int i = sstables_.size() - 1; i >= 0; i--){ //the loop goes from the newest to the oldest
+            std::string filename = sstables_[i];
             auto found = readFromSstable (filename, key);
             if (found.has_value()){
                 if (found.value().isTombstone == true ){
