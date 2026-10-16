@@ -4,3 +4,5 @@ fsync_test
 *.wal
 *.o
 *.sst
+test
+MANIFEST

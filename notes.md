@@ -381,3 +381,45 @@ Candidate for the design doc.
 - CRC should cover the type byte (and lengths).
 - inline on header functions + #pragma once in checksum.h (ODR).
 - del() does not check flushThreshold_.
+
+## 2026-10-15 — test.cpp: restart test (manifest proven)
+
+Added test.cpp, a separate test program (g++ test.cpp -o test && ./test).
+Uses assert: a failed check stops the program and shows the line.
+main.cpp stays a playground; test.cpp is the fixed list of checks.
+
+- cleanup(): removes wal.log, MANIFEST, and every *.sst
+  (std::filesystem::remove + directory_iterator), so each test starts
+  empty.
+- testRestart(): DB #1 puts k1..k6 (2 flushes: sstable0, sstable1),
+  close. Then delete wal.log. Then DB #2 opens (the restart) and
+  asserts all 6 values + a missing key.
+
+Why delete wal.log between the runs: recovery replays the whole WAL
+into the memtable, so without it the test passed even with a broken
+manifest (all keys came from the memtable). With the WAL gone, the
+memtable is empty and get() must read the SSTables via the manifest.
+This also simulates WAL truncation.
+
+Tested the test: commented out `sstables_ = manifest_.load();` ->
+assert on k1 failed. Restored -> passed. The test checks the right
+thing.
+
+Also:
+- Manifest::close(); DB::close() now closes the manifest too
+  (file descriptor leak before).
+- .gitignore: compiled programs (main, test, fsync_test) and DB files
+  (*.log, *.wal, *.sst, MANIFEST, *.o).
+
+Lessons:
+- A test that passes can still prove nothing. Check WHERE the answer
+  came from (memtable vs SSTable).
+- Break the code on purpose to confirm the test fails.
+
+### Next
+- Test 6: after restart, put 3 more keys -> flush creates sstable2.sst
+  and succeeds; all 9 keys found. (Checks sstCounter_ from manifest.)
+- Move the flushed-tombstone test from main.cpp into test.cpp.
+- Tests 1, 2, 3, 7 (basic get, flush, newer SSTable wins, missing key).
+- Then: orphan SSTable cleanup on open(), WAL truncation after flush.
+- Rule from now on: every fix/feature gets a test in the same commit.

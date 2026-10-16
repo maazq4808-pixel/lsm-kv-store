@@ -114,10 +114,12 @@ public:
 
     // Flushes any pending (un-synced) writes to disk, then closes the WAL.
     // A clean close never loses data; only a crash mid-batch can.
+    // closes the manifest too.
     void close() {
         wal_.sync();
         writesSinceSync_ = 0;
         wal_.close();
+        manifest_.close();
     }
     // Replays the WAL into the memtable on startup: puts re-add keys,
     // tombstones re-delete them. Stops at the first invalid/torn record

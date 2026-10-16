@@ -24,6 +24,10 @@ class Manifest {
             manifest_.open(path);
             path_ = path;
         }
+        void close(){
+        manifest_.close();
+
+        }
         // Appends one "file added" entry and syncs it to disk.
         // After this returns, the SSTable is live and survives a restart.
         void add(const std::string& filename){
