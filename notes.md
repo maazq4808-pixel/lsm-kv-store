@@ -415,6 +415,7 @@ Lessons:
 - A test that passes can still prove nothing. Check WHERE the answer
   came from (memtable vs SSTable).
 - Break the code on purpose to confirm the test fails.
+- <BS>Test 6 passes: flush after restart → sstable2.sst, found after a second restart. Tested the test by removing the sstCounter_ line.
 
 ### Next
 - Test 6: after restart, put 3 more keys -> flush creates sstable2.sst
