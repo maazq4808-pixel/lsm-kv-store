@@ -2,6 +2,7 @@
 #include <cassert>
 #include <filesystem>
 #include <iostream>
+#include <fstream>
 
 
 namespace fs = std::filesystem;
@@ -123,9 +124,49 @@ void testFlushedTombstone() {
     std::cout << "testFlushedTombstone passed\n";
 }
 
+void testOrphanRemoved() {
+    cleanup();
+
+    {
+        DB db;
+        db.open("wal.log");
+        db.put("k1", "v1");
+        db.put("k2", "v2");
+        db.put("k3", "v3");
+        db.close();
+    }
+
+    std::ofstream("sstable1.sst") << "orphan";
+    std::ofstream("notes.sst") << "user file";
+    std::ofstream("sstable_backup.txt") << "user file";
+
+    {
+        DB db2;
+        db2.open("wal.log");
+
+        assert(!fs::exists("sstable1.sst"));
+        assert(fs::exists("sstable0.sst"));
+        assert(fs::exists("notes.sst"));
+        assert(fs::exists("sstable_backup.txt"));
+
+        db2.put("k4", "v4");
+        db2.put("k5", "v5");
+        db2.put("k6", "v6");
+        assert(fs::exists("sstable1.sst"));
+        assert(db2.get("k1") == "v1");
+        assert(db2.get("k6") == "v6");
+        db2.close();
+    }
+
+    fs::remove("notes.sst");
+    fs::remove("sstable_backup.txt");
+    std::cout << "testOrphanRemoved passed\n";
+}
+
 int main() {
 testRestart();
 testFlushAfterRestart();
 std::cout << "All tests passed\n";
 testFlushedTombstone();
+testOrphanRemoved();
 }

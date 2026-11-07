@@ -1,4 +1,6 @@
 #pragma once
+#include <filesystem>
+#include <algorithm>
 #include "log_file.h"
 #include "memtable.h"
 #include "record.h"
@@ -25,6 +27,7 @@ public:
         wal_.open(path);
         manifest_.open("MANIFEST");
         sstables_ = manifest_.load();
+        removeOrphans();
         int largest = -1;
         for(const auto& name : sstables_){
             int fileNumber = std::stoi(name.substr(7, name.size() - 11)); 
@@ -157,5 +160,16 @@ private:
     size_t flushThreshold_ = 3; //threshold to flush sstable file
     Manifest manifest_; //list of live sstables
     std::vector<std::string> sstables_; //live sstable names
+    void removeOrphans(){
+    for (const auto& entry : std::filesystem::directory_iterator(".")) {
+        std::string name = entry.path().filename().string();
+        if (entry.path().extension() != ".sst" or name.substr(0, 7) != "sstable"){
+          continue;
+        }
+        if (std::find(sstables_.begin(), sstables_.end(), name) == sstables_.end()){
+          std::filesystem::remove(entry.path());
+        }
+    }
+}
 };
 
