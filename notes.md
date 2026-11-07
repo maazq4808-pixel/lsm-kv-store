@@ -424,3 +424,37 @@ Lessons:
 - Tests 1, 2, 3, 7 (basic get, flush, newer SSTable wins, missing key).
 - Then: orphan SSTable cleanup on open(), WAL truncation after flush.
 - Rule from now on: every fix/feature gets a test in the same commit.
+## 2026-10-16 — Test: flush after restart
+
+testFlushAfterRestart: write k1..k6 (sstable0, sstable1), delete
+wal.log, restart, write k7..k9 -> sstable2.sst must be created.
+Restart again -> all 9 keys found (sstable2 is in the manifest).
+Tested the test: removed `sstCounter_ = largest + 1;` -> failed.
+
+## 2026-11-06 — Tombstone test + orphan cleanup
+
+testFlushedTombstone: moved the 10-07 bug test into test.cpp.
+Tombstone in sstable1 must hide ali=1 in sstable0, also after a
+restart. Tested the test: `continue;` on tombstone -> failed.
+
+Orphan = .sst file not listed in the manifest (crash before the
+manifest entry is synced). Its data is still in the WAL. Problem:
+its number blocks the next flush (O_EXCL fails).
+
+Fix: DB::removeOrphans(), called in open() after load():
+- skip files that don't end in ".sst" OR don't start with "sstable"
+- delete .sst files not in sstables_ (std::find)
+Must run after load(), or it deletes every SSTable.
+Review caught `and` instead of `or` -> would delete user files.
+
+testOrphanRemoved: fake orphan + user files (notes.sst,
+sstable_backup.txt). Reopen -> orphan gone, live and user files
+kept, next flush works. Tested the test: removed the call -> failed.
+
+Lesson: destructive code needs the narrowest match and a test for
+what must NOT be deleted.
+
+### Next
+- WAL truncation after flush (only after the manifest is synced).
+- DB gets its own folder: open("mydb").
+- Then sparse index (benchmark before/after), scan().
