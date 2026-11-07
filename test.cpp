@@ -89,8 +89,43 @@ db3.open("wal.log");
 
 
 }
+void testFlushedTombstone() {
+    cleanup();
+
+    {
+        DB db;
+        db.open("wal.log");
+
+        db.put("ali", "1");
+        db.put("bob", "2");
+        db.put("cat", "3");
+
+        db.del("ali");
+        db.put("bob", "2");
+        db.put("cat", "3");
+
+        assert(!db.get("ali").has_value());
+        assert(db.get("bob") == "2");
+        db.close();
+    }
+
+    fs::remove("wal.log");
+
+    {
+        DB db2;
+        db2.open("wal.log");
+        assert(!db2.get("ali").has_value());
+        assert(db2.get("bob") == "2");
+        assert(db2.get("cat") == "3");
+        db2.close();
+    }
+
+    std::cout << "testFlushedTombstone passed\n";
+}
+
 int main() {
 testRestart();
 testFlushAfterRestart();
 std::cout << "All tests passed\n";
+testFlushedTombstone();
 }
